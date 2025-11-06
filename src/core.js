@@ -1,48 +1,8 @@
-// 优化版自定义回复（移除冗余功能，精简实用）
+// 仅保留必要配置（移除所有关键词回复相关逻辑）
 const CUSTOM_REPLIES = {
-  keywords: [
-    {
-      trigger: ['你好', 'hi', 'hello', '哈喽', '嗨'],
-      reply: '👋 你好呀！我是主人的专属双向转发机器人～\n直接发送文字、图片、文件等消息，我会第一时间同步给主人，主人回复后会实时转达给你哦！'
-    },
-    {
-      trigger: ['帮助', 'help', '使用方法', '怎么用'],
-      reply: '📋 机器人使用指南：\n1. 发送任意消息 → 自动转发给主人\n2. 主人回复你的消息 → 我会同步通知你\n3. 支持类型：文字、图片、视频、文件、地理位置'
-    },
-    {
-      trigger: ['谢谢', 'thanks', '感谢', '多谢'],
-      reply: '😊 不客气～ 能帮你传递消息是我的职责！\n如果有其他需求，欢迎随时告诉我呀～'
-    },
-    {
-      trigger: ['再见', '拜拜', 'byebye'],
-      reply: '👋 再见啦！期待下次为你服务～\n如果后续有需要传递的消息，随时回来找我呀！'
-    }
-  ],
-  default: {
-    text: '🤖 收到你的文字消息啦！\n主人会尽快查看并回复，请耐心等待～\n（发送「帮助」可查看使用指南）',
-    media: '📥 收到你的多媒体消息（图片/视频/文件）！\n已同步转发给主人，主人回复后会第一时间通知你～'
-  },
-  // 精简主人专属回复（移除冗余功能）
+  // 仅保留主人专属提示（无用户自动回复）
   ownerOnly: '👨‍💻 主人你好！\n✅ 双向转发功能已启用，用户消息会实时同步给你\n📌 回复用户消息时，直接回复我转发的消息即可'
 };
-
-// 关键词匹配逻辑（精准+模糊）
-function matchKeyword(messageText) {
-  if (!messageText) return null;
-  const lowerText = messageText.trim().toLowerCase();
-  
-  // 精准匹配
-  const exactMatchRule = CUSTOM_REPLIES.keywords.find(rule => 
-    rule.trigger.some(trigger => trigger.toLowerCase() === lowerText)
-  );
-  if (exactMatchRule) return exactMatchRule.reply;
-  
-  // 模糊匹配
-  const fuzzyMatchRule = CUSTOM_REPLIES.keywords.find(rule => 
-    rule.trigger.some(trigger => lowerText.includes(trigger.toLowerCase()))
-  );
-  return fuzzyMatchRule ? fuzzyMatchRule.reply : null;
-}
 
 // 密钥校验
 export function validateSecretToken(token) {
@@ -119,10 +79,10 @@ export async function handleUninstall(botToken, secretToken) {
     }
 }
 
-// 修复：将去重变量声明在函数外部（避免static关键字错误）
+// 消息去重变量
 let lastMessageId = null;
 
-// Webhook消息处理（移除冗余+美化格式+去重）
+// Webhook消息处理（仅保留双向转发，无自动回复）
 export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     if (secretToken !== request.headers.get('X-Telegram-Bot-Api-Secret-Token')) {
         return new Response('Unauthorized', {status: 401});
@@ -138,14 +98,14 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     const messageText = message.text || '';
     const senderUid = message.chat.id.toString();
 
-    // 消息去重：避免重复处理同一消息
+    // 消息去重
     if (message.message_id === lastMessageId) {
         return new Response('OK');
     }
     lastMessageId = message.message_id;
 
     try {
-        // 主人直接发消息 → 精简专属回复
+        // 主人直接发消息 → 专属提示
         if (senderUid === ownerUid && !reply) {
             await postToTelegramApi(botToken, 'sendMessage', {
                 chat_id: senderUid,
@@ -174,53 +134,23 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             return new Response('OK');
         }
 
-        // /start命令 → 欢迎回复
+        // /start命令 → 极简欢迎（仅必要提示）
         if ("/start" === messageText) {
             await postToTelegramApi(botToken, 'sendMessage', {
                 chat_id: senderUid,
-                text: '🎉 欢迎使用双向转发机器人！\n直接发消息即可联系主人，主人会尽快回复你～\n发送「帮助」查看详细使用说明',
+                text: '🎉 欢迎使用双向转发机器人！\n你的消息已同步给主人，耐心等待回复～',
                 parse_mode: 'Markdown',
                 disable_web_page_preview: true
             });
             return new Response('OK');
         }
 
-        // 关键词匹配 → 自定义回复
-        const keywordReply = matchKeyword(messageText);
-        if (keywordReply) {
-            await postToTelegramApi(botToken, 'sendMessage', {
-                chat_id: senderUid,
-                text: keywordReply,
-                parse_mode: 'Markdown',
-                disable_web_page_preview: true
-            });
-        } 
-        // 无关键词 → 区分文本/多媒体默认回复
-        else {
-            let defaultReply;
-            if (message.text) {
-                defaultReply = CUSTOM_REPLIES.default.text;
-            } else if (message.photo || message.video || message.document || message.audio || message.location) {
-                defaultReply = CUSTOM_REPLIES.default.media;
-            } else {
-                defaultReply = CUSTOM_REPLIES.default.text;
-            }
-            
-            await postToTelegramApi(botToken, 'sendMessage', {
-                chat_id: senderUid,
-                text: defaultReply,
-                parse_mode: 'Markdown',
-                disable_web_page_preview: true
-            });
-        }
-
-        // 用户消息 → 美化格式后转发给主人
+        // 用户消息 → 直接转发给主人（无任何自动回复）
         const sender = message.chat;
         const senderName = sender.username ? `@${sender.username}` : [sender.first_name, sender.last_name].filter(Boolean).join(' ');
 
         const copyMessage = async function (withUrl = false) {
             const ik = [[{
-                // 美化转发卡片：清晰展示用户信息
                 text: `👤 消息来自：${senderName}\n🆔 用户ID：${senderUid}`,
                 callback_data: senderUid,
             }]];
