@@ -1,5 +1,5 @@
 {
-  "name": "open-wegram-bot",
+  "name": "shuangxiang-bot",
   "version": "0.2.4",
   "type": "module",
   "description": "A two-way private messaging Telegram bot using Cloudflare Workers or Vercel",
