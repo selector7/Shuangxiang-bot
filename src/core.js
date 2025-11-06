@@ -1,4 +1,4 @@
-// 优化版自定义回复（场景化、自然友好）
+// 优化版自定义回复（移除冗余功能，精简实用）
 const CUSTOM_REPLIES = {
   keywords: [
     {
@@ -7,19 +7,11 @@ const CUSTOM_REPLIES = {
     },
     {
       trigger: ['帮助', 'help', '使用方法', '怎么用'],
-      reply: '📋 机器人使用指南：\n1. 发送任意消息 → 自动转发给主人\n2. 主人回复你的消息 → 我会同步通知你\n3. 支持类型：文字、图片、视频、文件、地理位置\n4. 发送「状态」可查看机器人当前运行情况\n5. 发送「联系主人」可获取主人公开联系方式（若有）'
+      reply: '📋 机器人使用指南：\n1. 发送任意消息 → 自动转发给主人\n2. 主人回复你的消息 → 我会同步通知你\n3. 支持类型：文字、图片、视频、文件、地理位置'
     },
     {
       trigger: ['谢谢', 'thanks', '感谢', '多谢'],
       reply: '😊 不客气～ 能帮你传递消息是我的职责！\n如果有其他需求，欢迎随时告诉我呀～'
-    },
-    {
-      trigger: ['状态', '运行状态', '是否在线'],
-      reply: '🟢 机器人当前状态：正常运行中\n📡 连接状态：已绑定主人账号\n⌛ 响应延迟：≤1秒\n💬 支持消息类型：文字、图片、视频、文件、地理位置'
-    },
-    {
-      trigger: ['联系主人', '主人联系方式', '怎么找主人'],
-      reply: '📞 主人公开联系方式：\n-  Telegram：@主人用户名（替换为实际用户名）\n-  备注：主人会在24小时内回复，紧急事项可重复发送消息提醒～'
     },
     {
       trigger: ['再见', '拜拜', 'byebye'],
@@ -30,33 +22,34 @@ const CUSTOM_REPLIES = {
     text: '🤖 收到你的文字消息啦！\n主人会尽快查看并回复，请耐心等待～\n（发送「帮助」可查看使用指南）',
     media: '📥 收到你的多媒体消息（图片/视频/文件）！\n已同步转发给主人，主人回复后会第一时间通知你～'
   },
-  ownerOnly: '👨‍💻 主人你好！\n✅ 双向转发功能已启用，用户消息会实时同步给你\n📌 回复用户消息时，直接回复我转发的消息即可\n📊 发送「统计」可查看今日消息转发次数\n🔧 发送「设置」可修改机器人基础配置（后续可扩展）'
+  // 精简主人专属回复（移除冗余功能）
+  ownerOnly: '👨‍💻 主人你好！\n✅ 双向转发功能已启用，用户消息会实时同步给你\n📌 回复用户消息时，直接回复我转发的消息即可'
 };
 
-// 优化版关键词匹配（精准+模糊，优先级排序）
+// 关键词匹配逻辑（精准+模糊）
 function matchKeyword(messageText) {
   if (!messageText) return null;
   const lowerText = messageText.trim().toLowerCase();
   
-  // 精准匹配（优先级最高）
+  // 精准匹配
   const exactMatchRule = CUSTOM_REPLIES.keywords.find(rule => 
     rule.trigger.some(trigger => trigger.toLowerCase() === lowerText)
   );
   if (exactMatchRule) return exactMatchRule.reply;
   
-  // 模糊匹配（包含关键词即触发）
+  // 模糊匹配
   const fuzzyMatchRule = CUSTOM_REPLIES.keywords.find(rule => 
     rule.trigger.some(trigger => lowerText.includes(trigger.toLowerCase()))
   );
   return fuzzyMatchRule ? fuzzyMatchRule.reply : null;
 }
 
-// 密钥校验：16位+大小写字母+数字
+// 密钥校验
 export function validateSecretToken(token) {
     return token.length > 15 && /[A-Z]/.test(token) && /[a-z]/.test(token) && /[0-9]/.test(token);
 }
 
-// 标准 JSON 响应工具
+// 标准JSON响应
 export function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
@@ -64,7 +57,7 @@ export function jsonResponse(data, status = 200) {
     });
 }
 
-// 调用 Telegram API
+// 调用Telegram API
 export async function postToTelegramApi(token, method, body) {
     return fetch(`https://api.telegram.org/bot${token}/${method}`, {
         method: 'POST',
@@ -73,7 +66,7 @@ export async function postToTelegramApi(token, method, body) {
     });
 }
 
-// 安装 Webhook
+// 安装Webhook
 export async function handleInstall(request, ownerUid, botToken, prefix, secretToken) {
     if (!validateSecretToken(secretToken)) {
         return jsonResponse({
@@ -104,7 +97,7 @@ export async function handleInstall(request, ownerUid, botToken, prefix, secretT
     }
 }
 
-// 卸载 Webhook
+// 卸载Webhook
 export async function handleUninstall(botToken, secretToken) {
     if (!validateSecretToken(secretToken)) {
         return jsonResponse({
@@ -126,7 +119,7 @@ export async function handleUninstall(botToken, secretToken) {
     }
 }
 
-// Webhook 消息处理（双向转发+优化回复）
+// Webhook消息处理（移除冗余+美化格式+去重）
 export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     if (secretToken !== request.headers.get('X-Telegram-Bot-Api-Secret-Token')) {
         return new Response('Unauthorized', {status: 401});
@@ -142,8 +135,15 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     const messageText = message.text || '';
     const senderUid = message.chat.id.toString();
 
+    // 消息去重：避免重复处理同一消息
+    static lastMessageId = null;
+    if (message.message_id === lastMessageId) {
+        return new Response('OK');
+    }
+    lastMessageId = message.message_id;
+
     try {
-        // 主人直接发消息 → 专属回复
+        // 主人直接发消息 → 精简专属回复
         if (senderUid === ownerUid && !reply) {
             await postToTelegramApi(botToken, 'sendMessage', {
                 chat_id: senderUid,
@@ -172,7 +172,7 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             return new Response('OK');
         }
 
-        // /start 命令 → 欢迎回复
+        // /start命令 → 欢迎回复
         if ("/start" === messageText) {
             await postToTelegramApi(botToken, 'sendMessage', {
                 chat_id: senderUid,
@@ -212,18 +212,18 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             });
         }
 
-        // 用户消息 → 转发给主人
+        // 用户消息 → 美化格式后转发给主人
         const sender = message.chat;
         const senderName = sender.username ? `@${sender.username}` : [sender.first_name, sender.last_name].filter(Boolean).join(' ');
 
         const copyMessage = async function (withUrl = false) {
             const ik = [[{
-                text: `🔏 From: ${senderName} (${senderUid})`,
+                // 美化转发卡片：清晰展示用户信息
+                text: `👤 消息来自：${senderName}\n🆔 用户ID：${senderUid}`,
                 callback_data: senderUid,
             }]];
 
             if (withUrl) {
-                ik[0][0].text = `🔓 From: ${senderName} (${senderUid})`;
                 ik[0][0].url = `tg://user?id=${senderUid}`;
             }
 
@@ -231,6 +231,7 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
                 chat_id: parseInt(ownerUid),
                 from_chat_id: message.chat.id,
                 message_id: message.message_id,
+                parse_mode: 'Markdown',
                 reply_markup: {inline_keyboard: ik}
             });
         }
