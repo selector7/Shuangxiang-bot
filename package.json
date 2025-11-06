@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "description": "Telegram 双向消息转发机器人（含自定义回复，Vercel/Cloudflare 双部署）",
   "main": "api/index.js",
+  "type": "module",
   "scripts": {
     "dev": "vercel dev",
-    "deploy": "vercel deploy --prod"
+    "deploy": "vercel deploy --prod",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "engines": {
     "node": ">=18.x"
   },
   "dependencies": {},
   "devDependencies": {
-    "vercel": "^32.4.1"
-  }
+    "vercel": "^37.0.0"
+  },
+  "keywords": ["telegram-bot", "two-way-forward", "vercel", "cloudflare-workers"],
+  "author": "",
+  "license": "MIT"
 }
