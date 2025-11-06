@@ -47,9 +47,9 @@ export default async function handler(req, res) {
   }
 }
 
-// 🔥 修复核心：简化 runtime 配置（新版 Vercel 自动适配 Node.js 18+）
+// 🔥 最终简化配置（适配免费版 Vercel）
 export const config = {
-  runtime: 'nodejs', // 替换原 nodejs18.x，兼容新版 Vercel CLI
-  maxDuration: 10, // 超时10秒保留
-  regions: ['iad1', 'sfo1', 'lhr1', 'sin1'] // 全球节点保留
+  runtime: 'nodejs', // 兼容新版 Vercel CLI
+  maxDuration: 10 // 保留超时配置（免费版支持最高 10s）
+  // 移除 regions 配置（免费版不支持多区域）
 };
