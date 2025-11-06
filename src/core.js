@@ -119,6 +119,9 @@ export async function handleUninstall(botToken, secretToken) {
     }
 }
 
+// 修复：将去重变量声明在函数外部（避免static关键字错误）
+let lastMessageId = null;
+
 // Webhook消息处理（移除冗余+美化格式+去重）
 export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     if (secretToken !== request.headers.get('X-Telegram-Bot-Api-Secret-Token')) {
@@ -136,7 +139,6 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     const senderUid = message.chat.id.toString();
 
     // 消息去重：避免重复处理同一消息
-    static lastMessageId = null;
     if (message.message_id === lastMessageId) {
         return new Response('OK');
     }
@@ -158,13 +160,13 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
         if (reply && senderUid === ownerUid) {
             const rm = reply.reply_markup;
             if (rm && rm.inline_keyboard && rm.inline_keyboard.length > 0) {
-                let senderUid = rm.inline_keyboard[0][0].callback_data;
-                if (!senderUid) {
-                    senderUid = rm.inline_keyboard[0][0].url.split('tg://user?id=')[1];
+                let targetUid = rm.inline_keyboard[0][0].callback_data;
+                if (!targetUid) {
+                    targetUid = rm.inline_keyboard[0][0].url.split('tg://user?id=')[1];
                 }
 
                 await postToTelegramApi(botToken, 'copyMessage', {
-                    chat_id: parseInt(senderUid),
+                    chat_id: parseInt(targetUid),
                     from_chat_id: message.chat.id,
                     message_id: message.message_id
                 });
@@ -244,7 +246,7 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
         return new Response('OK');
     } catch (error) {
         console.error('Error handling webhook:', error);
-        return new Response('Internal Server Error', {status: 500});
+        return new Response(`Internal Server Error: ${error.message}`, {status: 500});
     }
 }
 
