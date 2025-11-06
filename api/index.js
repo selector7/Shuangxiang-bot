@@ -1,13 +1,10 @@
-import { handleRequest } from '../../src/core.js';
+import { handleRequest } from '../src/core.js';
 
 export default async function handler(req, res) {
   try {
-    // 🔥 关键：重构请求 URL，让 core.js 能匹配路由
-    const { path } = req.query; // 动态路由参数（获取 /tgbot/ 后的所有路径）
-    const fullPath = Array.isArray(path) ? path.join('/') : path || '';
-    const requestUrl = `${req.headers['x-forwarded-proto']}://${req.headers.host}/tgbot/${fullPath}`;
-
-    // 构建标准 Request 对象
+    // 🔥 1. 修复请求 URL：确保路径包含 /api/，适配 Vercel 路由规则
+    const requestUrl = `${req.headers['x-forwarded-proto']}://${req.headers.host}${req.url}`;
+    // 构建标准 Request 对象（无需改，保留你原逻辑）
     const request = new Request(requestUrl, {
       method: req.method,
       headers: new Headers(req.headers),
@@ -15,13 +12,13 @@ export default async function handler(req, res) {
       duplex: 'half'
     });
 
-    // 加载配置（PREFIX 固定为 tgbot，和路径一致）
+    // 🔥 2. 配置 prefix 为 empty（因为 URL 已包含 /api/，无需额外前缀）
     const config = {
-      prefix: 'tgbot', // 必须和文件夹名一致，无需环境变量
+      prefix: '', // 关键：清空前缀，让路由直接匹配 /api/install/...
       secretToken: process.env.SECRET_TOKEN || ''
     };
 
-    // 校验必填配置
+    // 校验必填配置（不变）
     if (!config.secretToken) {
       return res.status(500).json({
         success: false,
@@ -29,10 +26,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // 调用核心逻辑
+    // 调用核心逻辑（不变）
     const response = await handleRequest(request, config);
 
-    // 转发响应头和响应体
+    // 转发响应头和响应体（不变）
     response.headers.forEach((value, key) => res.setHeader(key, value));
     res.status(response.status);
     const body = await response.text();
@@ -45,7 +42,7 @@ export default async function handler(req, res) {
   }
 }
 
-// 最终简化配置（免费版兼容）
+// 免费版兼容配置（不变）
 export const config = {
   runtime: 'nodejs',
   maxDuration: 10
