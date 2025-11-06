@@ -1,22 +1,16 @@
 {
-  "name": "telegram-two-way-bot",
-  "version": "1.0.0",
-  "description": "Telegram 双向消息转发机器人（含自定义回复，Vercel/Cloudflare 双部署）",
-  "main": "api/index.js",
+  "name": "open-wegram-bot",
+  "version": "0.2.4",
   "type": "module",
+  "description": "A two-way private messaging Telegram bot using Cloudflare Workers or Vercel",
+  "main": "src/worker.js",
   "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel deploy --prod",
-    "test": "echo \"No tests specified\" && exit 0"
+    "deploy": "wrangler deploy"
   },
-  "engines": {
-    "node": ">=18.x"
-  },
-  "dependencies": {},
+  "author": "wozulong",
+  "license": "GPL-3.0",
   "devDependencies": {
-    "vercel": "^37.0.0"
-  },
-  "keywords": ["telegram-bot", "two-way-forward", "vercel", "cloudflare-workers"],
-  "author": "",
-  "license": "MIT"
+    "vercel": "^41.4.1",
+    "wrangler": "^4.0.0"
+  }
 }
