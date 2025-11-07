@@ -98,6 +98,11 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     const messageText = message.text || '';
     const senderUid = message.chat.id.toString();
 
+    // 核心改动1：群聊直接忽略（chat.type为group/supergroup均不响应）
+    if (message.chat.type === 'group' || message.chat.type === 'supergroup') {
+        return new Response('OK');
+    }
+
     // 消息去重
     if (message.message_id === lastMessageId) {
         return new Response('OK');
@@ -145,14 +150,17 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             return new Response('OK');
         }
 
-        // 用户消息 → 直接转发给主人（无任何自动回复）
+        // 用户消息 → 直接转发给主人（核心改动2：仅显示用户名，隐藏用户ID）
         const sender = message.chat;
-        const senderName = sender.username ? `@${sender.username}` : [sender.first_name, sender.last_name].filter(Boolean).join(' ');
+        // 优先显示用户名，无用户名则显示姓名（过滤空值）
+        const senderName = sender.username 
+            ? `@${sender.username}` 
+            : [sender.first_name, sender.last_name].filter(Boolean).join(' ');
 
         const copyMessage = async function (withUrl = false) {
             const ik = [[{
-                text: `👤 消息来自：${senderName}\n🆔 用户ID：${senderUid}`,
-                callback_data: senderUid,
+                text: `👤 消息来自：${senderName}`, // 移除ID显示
+                callback_data: senderUid, // 保留ID用于回复定位（仅后台使用，用户不可见）
             }]];
 
             if (withUrl) {
