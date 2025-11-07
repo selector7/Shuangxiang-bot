@@ -150,36 +150,39 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             return new Response('OK');
         }
 
-        // 用户消息 → 转发给主人（同时显示用户名和姓名，无ID）
-        const sender = message.chat;
-        const username = sender.username ? `@${sender.username}` : '';
-        const fullName = [sender.first_name, sender.last_name].filter(Boolean).join(' ');
-        
-        // 组合显示：有用户名+姓名则都展示，缺一个则只显示存在的
-        let senderInfo = [];
-        if (username) senderInfo.push(username);
-        if (fullName) senderInfo.push(fullName);
-        const displayText = senderInfo.join(' | '); // 用分隔符区分，清晰不杂乱
+        // 用户消息 → 转发给主人（按「姓名（用户名）」格式显示）
+const sender = message.chat;
+const username = sender.username ? `@${sender.username}` : '';
+const fullName = [sender.first_name, sender.last_name].filter(Boolean).join(' ');
 
-        const copyMessage = async function (withUrl = false) {
-            const ik = [[{
-                text: `👤 消息来自：${displayText}`, // 同时显示用户名和姓名
-                callback_data: senderUid, // 保留ID用于回复定位（仅后台使用）
-            }]];
+// 核心格式：有姓名和用户名→「姓名（用户名）」，缺一个则显示存在的
+let displayText;
+if (fullName && username) {
+    displayText = `${fullName}（${username}）`; // 例：张三（@zhangsan）
+} else if (fullName) {
+    displayText = fullName; // 例：李四
+} else {
+    displayText = username; // 例：@lisi
+}
 
-            if (withUrl) {
-                ik[0][0].url = `tg://user?id=${senderUid}`;
-            }
+const copyMessage = async function (withUrl = false) {
+    const ik = [[{
+        text: `👤 消息来自：${displayText}`, // 最终显示格式
+        callback_data: senderUid, // 保留ID用于回复定位
+    }]];
 
-            return await postToTelegramApi(botToken, 'copyMessage', {
-                chat_id: parseInt(ownerUid),
-                from_chat_id: message.chat.id,
-                message_id: message.message_id,
-                parse_mode: 'Markdown',
-                reply_markup: {inline_keyboard: ik}
-            });
-        }
+    if (withUrl) {
+        ik[0][0].url = `tg://user?id=${senderUid}`;
+    }
 
+    return await postToTelegramApi(botToken, 'copyMessage', {
+        chat_id: parseInt(ownerUid),
+        from_chat_id: message.chat.id,
+        message_id: message.message_id,
+        parse_mode: 'Markdown',
+        reply_markup: {inline_keyboard: ik}
+    });
+}
         const response = await copyMessage(true);
         if (!response.ok) {
             await copyMessage();
