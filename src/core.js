@@ -98,7 +98,7 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
     const messageText = message.text || '';
     const senderUid = message.chat.id.toString();
 
-    // 核心改动1：群聊直接忽略（chat.type为group/supergroup均不响应）
+    // 群聊直接忽略（chat.type为group/supergroup均不响应）
     if (message.chat.type === 'group' || message.chat.type === 'supergroup') {
         return new Response('OK');
     }
@@ -150,17 +150,21 @@ export async function handleWebhook(request, ownerUid, botToken, secretToken) {
             return new Response('OK');
         }
 
-        // 用户消息 → 直接转发给主人（核心改动2：仅显示用户名，隐藏用户ID）
+        // 用户消息 → 转发给主人（同时显示用户名和姓名，无ID）
         const sender = message.chat;
-        // 优先显示用户名，无用户名则显示姓名（过滤空值）
-        const senderName = sender.username 
-            ? `@${sender.username}` 
-            : [sender.first_name, sender.last_name].filter(Boolean).join(' ');
+        const username = sender.username ? `@${sender.username}` : '';
+        const fullName = [sender.first_name, sender.last_name].filter(Boolean).join(' ');
+        
+        // 组合显示：有用户名+姓名则都展示，缺一个则只显示存在的
+        let senderInfo = [];
+        if (username) senderInfo.push(username);
+        if (fullName) senderInfo.push(fullName);
+        const displayText = senderInfo.join(' | '); // 用分隔符区分，清晰不杂乱
 
         const copyMessage = async function (withUrl = false) {
             const ik = [[{
-                text: `👤 消息来自：${senderName}`, // 移除ID显示
-                callback_data: senderUid, // 保留ID用于回复定位（仅后台使用，用户不可见）
+                text: `👤 消息来自：${displayText}`, // 同时显示用户名和姓名
+                callback_data: senderUid, // 保留ID用于回复定位（仅后台使用）
             }]];
 
             if (withUrl) {
